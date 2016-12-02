@@ -74,16 +74,42 @@
 ##### Install Hadoop and friends ###############################################
 
   - name: 'Install Hadoop'
-    yum: name=hadoop-conf-pseudo  state=latest
+    yum: name={{item}} state=latest
+    with_items:
+
+    # TODO: The configuration files in this package can be imported into this
+    # repository for easier management
+    - hadoop-conf-pseudo
+
+    - zookeeper
+    - zookeeper-server
+    - hadoop-httpfs
+    - hbase 
 
 #### WARNING: This is destructive: Should we put this in a separate playbook?
   - name: Format HDFS
     command: /usr/bin/hdfs namenode -format
+    args:
+      creates: "/var/lib/hadoop-hdfs/cache/hdfs/dfs/name/current/VERSION"
     become_user: hdfs
-  - service: name={{item}} state=started
+  - service: name={{item}} state=started enabled=yes
     with_items:
      - hadoop-hdfs-namenode
      - hadoop-hdfs-secondarynamenode
-     - hadoop-hdfs-namenode
+     - hadoop-hdfs-datanode
+  - name: Check if hdfs has been initialized
+    command: hadoop fs -test -f /user/oozie/share/lib/mapreduce-streaming/hadoop-streaming.jar
+    register: hdfs_inited
   - name: Init HDFS 
     command: /usr/lib/hadoop/libexec/init-hdfs.sh
+    when: hdfs_inited.rc == 1
+
+    # Allow users some power but not the ability to delete other tables. See:
+    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_ig_filesystem_perm.html
+  - name: Create hive/warehouse directory
+    command: hadoop fs -mkdir -p /user/hive/warehouse
+    become_user: hdfs
+  - command: hadoop fs -chmod 1777 /user/hive/warehouse
+    become_user: hdfs
+
+
