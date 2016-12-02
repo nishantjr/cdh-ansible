@@ -76,15 +76,23 @@
   - name: 'Install Hadoop'
     yum: name={{item}} state=latest
     with_items:
-
-    # TODO: The configuration files in this package can be imported into this
-    # repository for easier management
-    - hadoop-conf-pseudo
+    - hadoop
+    - hadoop-hdfs-namenode
+    - hadoop-hdfs-datanode
+    - hadoop-hdfs-secondarynamenode
+    - hadoop-yarn-resourcemanager
+    - hadoop-yarn-nodemanager
+    - hadoop-mapreduce-historyserver
 
     - zookeeper
     - zookeeper-server
     - hadoop-httpfs
     - hbase 
+
+  - name: Copy hadoop configuration
+    template: src={{item}} dest=/etc/{{item}}
+    with_fileglob:
+     - config/hadoop/*
 
 #### WARNING: This is destructive: Should we put this in a separate playbook?
   - name: Format HDFS
@@ -111,5 +119,3 @@
     become_user: hdfs
   - command: hadoop fs -chmod 1777 /user/hive/warehouse
     become_user: hdfs
-
-
