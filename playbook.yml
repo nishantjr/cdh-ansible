@@ -1,8 +1,90 @@
 - hosts: all
+  vars:
+    - db_password: db
   become: true
   tasks:
+
+#### Base system install #######################################################
   - name: 'Disable IPv6'
     sysctl:
       name: net.ipv6.conf.all.disable_ipv6
       value: 1
       reload: yes
+  - name: 'Disable firewall'
+    service: name=firewalld enabled=false state=stopped
+
+  - name: 'Install packages'
+    yum: name={{item}}  state=latest
+    with_items:
+      - tcl
+      - wget
+      - git
+      - ant
+      - maven
+      - make
+      - gcc-c++
+      - gcc
+      - binutils
+      - libX11-devel
+      - libXpm-devel
+      - libXft-devel
+      - libXext-devel
+
+      - gcc-gfortran
+      - openssl-devel
+      - pcre-devel
+      - mesa-libGL-devel
+      - glew-devel
+      - mysql-devel
+      - fftw-devel
+      - graphviz-devel
+      - avahi-compat-libdns_sd-devel
+      - python-devel
+      - libxml2-devel
+
+      - java-1.8.0-openjdk-devel
+      - mysql-connector-java
+      - MySQL-python
+
+  - name: 'Enable CDH and mysql community release repositories'
+    yum: name={{item}}  state=present
+    with_items:
+      - https://archive.cloudera.com/cdh5/one-click-install/redhat/7/x86_64/cloudera-cdh-5-0.x86_64.rpm
+      - https://dev.mysql.com/get/mysql-community-release-el7-5.noarch.rpm
+
+  - name: 'Install mysql-community-server'
+    yum: name=mysql-community-server state=latest
+  - name: 'Copy MySql configuration'
+    template:
+      src: 'config/my.conf'
+      dest: '/etc/my.conf'
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+  - name: 'Enable and start mysqld service'
+    service: name=mysqld enabled=yes state=started
+
+  - name: 'Set mysql root password'
+    mysql_user:
+      name: root
+      password: '{{db_password}}'
+      check_implicit_admin: yes
+      login_password: '{{db_password}}'
+      state: present
+
+##### Install Hadoop and friends ###############################################
+
+  - name: 'Install Hadoop'
+    yum: name=hadoop-conf-pseudo  state=latest
+
+#### WARNING: This is destructive: Should we put this in a separate playbook?
+  - name: Format HDFS
+    command: /usr/bin/hdfs namenode -format
+    become_user: hdfs
+  - service: name={{item}} state=started
+    with_items:
+     - hadoop-hdfs-namenode
+     - hadoop-hdfs-secondarynamenode
+     - hadoop-hdfs-namenode
+  - name: Init HDFS 
+    command: /usr/lib/hadoop/libexec/init-hdfs.sh
