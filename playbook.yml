@@ -64,13 +64,12 @@
   - name: 'Enable and start mysqld service'
     service: name=mysqld enabled=yes state=started
 
-  - name: 'Set mysql root password'
-    mysql_user:
-      name: root
-      password: '{{db_password}}'
-      check_implicit_admin: yes
-      login_password: '{{db_password}}'
-      state: present
+##### TODO: This doesn't work on the second run, because the password has changed
+#  - name: 'Set mysql root password'
+#    mysql_user:
+#      name: root
+#      password: '{{db_password}}'
+#      state: present
 
 ##### Install Hadoop and friends ###############################################
 
