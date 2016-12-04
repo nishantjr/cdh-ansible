@@ -112,4 +112,10 @@
   - command: hadoop fs -chmod 1777 /user/hive/warehouse
     become_user: hdfs
 
+  - pam_limits: domain={{item.user}} limit_type=- limit_item={{item.name}} value={{item.value}}
+    with_items:
+      - { user: hbase,     name: nofile,    value: 32768 }
+      - { user: hbase,     name: nproc,     value: 32768 }
+      - { user: hdfs,      name: nofile,    value: 32768 }
+      - { user: hbase,     name: nproc,     value: 32768 }
 
