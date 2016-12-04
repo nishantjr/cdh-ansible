@@ -76,15 +76,27 @@
   - name: 'Install Hadoop'
     yum: name={{item}} state=latest
     with_items:
-
-    # TODO: The configuration files in this package can be imported into this
-    # repository for easier management
-    - hadoop-conf-pseudo
+    - hadoop
+    - hadoop-hdfs-namenode
+    - hadoop-hdfs-datanode
+    - hadoop-hdfs-secondarynamenode
+    - hadoop-yarn-resourcemanager
+    - hadoop-yarn-nodemanager
+    - hadoop-mapreduce-historyserver
 
     - zookeeper
     - zookeeper-server
     - hadoop-httpfs
     - hbase 
+
+  - file: path=/etc/hadoop/conf.stat480/ state=directory
+  - name: 'Copy hadoop conf'
+    template:
+      src: '{{item}}'
+      dest: '/etc/hadoop/conf.stat480/{{item | basename}}'
+    with_fileglob:
+      - config/hadoop/*
+  - alternatives: name=hadoop-conf link=/etc/hadoop/conf path=/etc/hadoop/conf.stat480
 
 #### WARNING: This is destructive: Should we put this in a separate playbook?
   - name: Format HDFS
