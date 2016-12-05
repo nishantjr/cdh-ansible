@@ -168,7 +168,7 @@
       state: present
       target: /usr/lib/hive/scripts/metastore/upgrade/mysql/hive-schema-1.1.0.mysql.sql
       login_password: '{{db_password}}'
-  - name: 'Set mysql root password'
+  - name: 'Set MySql Hive password'
     mysql_user:
       name: hive
       password: '{{db_password}}'
