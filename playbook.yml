@@ -99,6 +99,8 @@
     - hive-server2
     - hive-hbase
 
+    - pig
+
   - file: path=/etc/hadoop/conf.stat480/ state=directory
   - name: 'Copy hadoop conf'
     template:
