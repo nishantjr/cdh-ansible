@@ -61,9 +61,9 @@
 	</property>
 
 	<property>
-	  <name>datanucleus.autoStartMechanism</name> 
+	  <name>datanucleus.autoStartMechanism</name>
 	  <value>SchemaTable</value>
-	</property> 
+	</property>
 
 	<property>
 	  <name>hive.metastore.uris</name>
@@ -75,5 +75,4 @@
 		<name>hive.metastore.schema.verification</name>
 		<value>true</value>
 	</property>
-
 </configuration>

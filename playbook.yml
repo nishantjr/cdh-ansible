@@ -94,6 +94,11 @@
     - hbase-thrift
     - hbase-rest
 
+    - hive
+    - hive-metastore
+    - hive-server2
+    - hive-hbase
+
   - file: path=/etc/hadoop/conf.stat480/ state=directory
   - name: 'Copy hadoop conf'
     template:
@@ -111,6 +116,15 @@
     with_fileglob:
       - config/hbase/*
   - alternatives: name=hbase-conf link=/etc/hbase/conf path=/etc/hbase/conf.stat480
+
+  - file: path=/etc/hive/conf.stat480/ state=directory
+  - name: 'Copy hive conf'
+    template:
+      src: '{{item}}'
+      dest: '/etc/hive/conf.stat480/{{item | basename}}'
+    with_fileglob:
+      - config/hive/*
+  - alternatives: name=hive-conf link=/etc/hive/conf path=/etc/hive/conf.stat480
 
 #### WARNING: This is destructive: Should we put this in a separate playbook?
   - name: Format HDFS
@@ -145,3 +159,17 @@
       - { user: hdfs,      name: nofile,    value: 32768 }
       - { user: hbase,     name: nproc,     value: 32768 }
 
+#### Setup Hive
+  - name: 'Create DB for Hive'
+    mysql_db:
+      name: metastore
+      state: present
+      target: /usr/lib/hive/scripts/metastore/upgrade/mysql/hive-schema-1.1.0.mysql.sql
+      login_password: '{{db_password}}'
+  - name: 'Set mysql root password'
+    mysql_user:
+      name: hive
+      password: '{{db_password}}'
+      state: present
+      priv: 'metastore.*:ALL'
+      login_password: '{{db_password}}'
