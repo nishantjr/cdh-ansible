@@ -171,6 +171,7 @@
   - name: Check if hdfs has been initialized
     command: hadoop fs -test -f /user/oozie/share/lib/mapreduce-streaming/hadoop-streaming.jar
     register: hdfs_inited
+    ignore_errors: true
   - name: Init HDFS 
     command: /usr/lib/hadoop/libexec/init-hdfs.sh
     when: hdfs_inited.rc == 1
