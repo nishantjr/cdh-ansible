@@ -43,4 +43,13 @@
     <value>/var/lib/hadoop-mapreduce/cache/${user.name}/tasks</value>
   </property>
 
+  <property>
+    <name>mapreduce.map.output.compress</name>  
+    <value>true</value>
+  </property>
+  <property>
+    <name>mapred.map.output.compress.codec</name>  
+    <value>org.apache.hadoop.io.compress.SnappyCodec</value>
+  </property>
+
 </configuration>

@@ -47,7 +47,7 @@
 
 	<property>
 	  <name>javax.jdo.option.ConnectionPassword</name>
-	  <value>db</value>
+	  <value>{{db_password}}</value>
 	</property>
 
 	<property>

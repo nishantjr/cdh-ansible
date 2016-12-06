@@ -75,4 +75,26 @@
         <value>*</value>
     </property>
 
+
+    <property>
+        <name>oozie.service.JPAService.jdbc.driver</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+    <property>
+        <name>oozie.service.JPAService.jdbc.url</name>
+        <value>jdbc:mysql://localhost:3306/oozie</value>
+    </property>
+    <property>
+        <name>oozie.service.JPAService.jdbc.username</name>
+        <value>oozie</value>
+    </property>
+    <property>
+        <name>oozie.service.JPAService.jdbc.password</name>
+        <value>{{db_password}}</value>
+    </property>
+<property>
+        <name>oozie.action.mapreduce.uber.jar.enable</name>
+        <value>true</value>
+</property>
+
 </configuration>

@@ -1,6 +1,9 @@
 - hosts: all
   vars:
     - db_password: db
+    # We're not in a security sensitive environment, so it's not critical that
+    # this is random.
+    - hue_secret_key: 090c39b3c2859d5c6e0fd7d63ccefc9ebdc6628c3ecbb
   become: true
   tasks:
 
@@ -101,9 +104,35 @@
 
     - pig
 
-  - file: path=/etc/hadoop/conf.stat480/ state=directory
+    - oozie
+    - oozie-client
+
+    - hue
+
+    - flume-ng
+    - flume-ng-agent
+    - flume-ng-doc
+
+    - sqoop2-server
+    - sqoop2-client
+
+    - spark-core
+    - spark-master
+    - spark-worker
+    - spark-history-server
+    - spark-python
+
+    - impala
+    - impala-server
+    - impala-state-store
+    - impala-catalog
+
+  - file: path=/var/lib/zookeeper owner=zookeeper group=zookeeper
+  - command: service zookeeper-server init
+
   - name: 'Copy hadoop conf'
-    template:
+    file: path=/etc/hadoop/conf.stat480/ state=directory
+  - template:
       src: '{{item}}'
       dest: '/etc/hadoop/conf.stat480/{{item | basename}}'
     with_fileglob:
@@ -146,6 +175,12 @@
     command: /usr/lib/hadoop/libexec/init-hdfs.sh
     when: hdfs_inited.rc == 1
 
+  - name: "Create user's HDFS lib directory"
+    command: hadoop fs -mkdir -p /user/{{ansible_user}}
+    become_user: hdfs
+  - command: hadoop fs -chown {{ansible_user}}:{{ansible_user}} /user/{{ansible_user}}
+    become_user: hdfs
+
     # Allow users some power but not the ability to delete other tables. See:
     # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_ig_filesystem_perm.html
   - name: Create hive/warehouse directory
@@ -159,15 +194,17 @@
       - { user: hbase,     name: nofile,    value: 32768 }
       - { user: hbase,     name: nproc,     value: 32768 }
       - { user: hdfs,      name: nofile,    value: 32768 }
-      - { user: hbase,     name: nproc,     value: 32768 }
+      - { user: hdfs,     name: nproc,     value: 32768 }
 
 #### Setup Hive
+# Unfortunately the schema includes files via a relative path, so we need to
+# chdir
   - name: 'Create DB for Hive'
-    mysql_db:
-      name: metastore
-      state: present
-      target: /usr/lib/hive/scripts/metastore/upgrade/mysql/hive-schema-1.1.0.mysql.sql
-      login_password: '{{db_password}}'
+    mysql_db: name=metastore state=present login_password={{db_password}}
+  - shell: mysql -u root -p{{db_password}} -D metastore < hive-schema-1.1.0.mysql.sql
+    args:
+      chdir: /usr/lib/hive/scripts/metastore/upgrade/mysql/
+    ignore_errors: yes # TODO: Can't be run twice
   - name: 'Set MySql Hive password'
     mysql_user:
       name: hive
@@ -175,3 +212,120 @@
       state: present
       priv: 'metastore.*:ALL'
       login_password: '{{db_password}}'
+  - file:
+      src: /usr/share/java/mysql-connector-java.jar
+      dest: /usr/lib/hive/lib/mysql-connector-java.jar
+      state: link
+
+#### Setup Oozie
+  - name: 'Create DB for Oozie'
+    mysql_db:
+      name: oozie
+      state: present
+      login_password: '{{db_password}}'
+  - name: 'Set MySQL Oozie password'
+    mysql_user:
+      name: oozie
+      password: '{{db_password}}'
+      state: present
+      priv: 'oozie.*:ALL'
+      login_password: '{{db_password}}'
+  - file: path=/etc/oozie/conf.stat480/ state=directory
+  - name: 'Copy oozie conf'
+    template:
+      src: '{{item}}'
+      dest: '/etc/oozie/conf.stat480/{{item | basename}}'
+    with_fileglob:
+      - config/oozie/*
+  - alternatives: name=oozie-conf link=/etc/oozie/conf path=/etc/oozie/conf.stat480
+  - name: "Link Oozie's hadoop-conf to main hadoop-conf"
+    file:
+      src: /etc/hadoop/conf
+      dest: /etc/oozie/conf.stat480/hadoop-conf
+      state: link
+  - file:
+      src: /usr/share/java/mysql-connector-java.jar
+      dest: /var/lib/oozie/mysql-connector-java.jar
+      state: link
+  - file: path=/etc/oozie/conf.stat480/action-conf/ state=directory
+  - name: "Copy oozie's action-conf"
+    template:
+      src: '{{item}}'
+      dest: '/etc/oozie/conf.stat480/action-conf/{{item | basename}}'
+    with_fileglob:
+      - config/oozie/action-conf/*
+  - name: "Load oozie's database schema"
+    command: /usr/lib/oozie/bin/ooziedb.sh create -run 
+    become_user: oozie
+##### TODO: This doesn't work on the second run, because the schema is already loaded
+    ignore_errors: yes
+  - name: "Load oozie's sharelib"
+    command: /usr/lib/oozie/bin/oozie-setup.sh sharelib create -fs hdfs://localhost:8020 -locallib /usr/lib/oozie/oozie-sharelib-yarn
+    become_user: oozie
+
+#### Flume
+  - name: Create Flume conf
+    command: cp /etc/flume-ng/conf/flume-conf.properties.template /etc/flume-ng/conf/flume.conf
+    args:
+      creates: etc/flume-ng/conf/flume.conf
+
+#### Sqoop2
+  - alternatives: name=sqoop2-tomcat-conf link=/etc/sqoop2/tomcat-conf path=/etc/sqoop2/tomcat-conf.dist
+  - file:
+      src: /usr/share/java/mysql-connector-java.jar
+      dest: /var/lib/sqoop2/mysql-connector-java.jar
+      state: link
+
+#### Hue
+  - name: 'Copy hue conf'
+    file: path=/etc/hue/conf.stat480/ state=directory
+  - template:
+      src: '{{item}}'
+      dest: '/etc/hue/conf.stat480/{{item | basename}}'
+    with_fileglob:
+      - config/hue/*
+  - alternatives: name=hue-conf link=/etc/hue/conf path=/etc/hue/conf.stat480
+  - name: "Fix bug in Hue's init file"
+    command: 'sed -i "s|pidfile: /usr/lib/hue/pids/supervisor.pid|pidfile: /var/run/hue/supervisor.pid|" /etc/rc.d/init.d/hue'
+  - name: 'Create DB for Hue'
+    mysql_db:
+      name: hue
+      state: present
+      login_password: '{{db_password}}'
+  - name: 'Set MySQL Hue password'
+    mysql_user:
+      name: hue
+      password: '{{db_password}}'
+      state: present
+      priv: 'hue.*:ALL'
+      login_password: '{{db_password}}'
+  - file: path=/usr/lib/hue/logs state=directory group=hue owner=hue
+  - name: hue syncdb
+    command: /usr/lib/hue/build/env/bin/hue syncdb --noinput
+    become_user: hue
+  - name: hue migrate
+    command: /usr/lib/hue/build/env/bin/hue migrate
+    become_user: hue
+
+  - name: Start and enable services
+    service: name={{item}} state=restarted enabled=yes
+    with_items:
+    - zookeeper-server
+    - hadoop-hdfs-namenode
+    - hadoop-hdfs-secondarynamenode
+    - hadoop-hdfs-datanode
+    - hadoop-httpfs 
+    - hadoop-yarn-resourcemanager
+    - hadoop-yarn-nodemanager
+    - hadoop-mapreduce-historyserver
+    - hbase-master
+    - hbase-thrift
+    - hbase-rest
+    - hbase-regionserver
+    - hive-metastore
+    - hive-server2
+    - impala-state-store
+    - impala-catalog
+    - impala-server
+    - oozie
+    - hue
