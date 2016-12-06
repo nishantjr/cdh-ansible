@@ -288,6 +288,7 @@
   - alternatives: name=hue-conf link=/etc/hue/conf path=/etc/hue/conf.stat480
   - name: "Fix bug in Hue's init file"
     command: 'sed -i "s|pidfile: /usr/lib/hue/pids/supervisor.pid|pidfile: /var/run/hue/supervisor.pid|" /etc/rc.d/init.d/hue'
+  - command: systemctl daemon-reload
   - name: 'Create DB for Hue'
     mysql_db:
       name: hue
